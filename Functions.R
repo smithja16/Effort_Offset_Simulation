@@ -28,12 +28,12 @@ MAE = function(p, o) {
 
 ## *Workhorse data generation function*
 ## This generates count data from a negative binomial distribution with specified theta
-## Counts are determined by effort, site (3 levels), and temperature
+## Counts are determined by specified effort, site (3 levels), and temperature effects
 ## The effort effect can be "proportional", "threshold", or "constant"...
-## ... proportional is a 1:1 relationship assumed by an offset term
-## ... threshold is a simple rising then constant threshold effect
-## ... constant is no effort effect (effort is independent of count)
-## The temp effect can be linear (uses beta_temp) or nonlinear (uses temp_optimum and temp_breadth)
+## ... "proportional" is a 1:1 relationship assumed by an offset term
+## ... "threshold" is a simple rising then constant threshold effect
+## ... "constant" is no effort effect (count is independent of effort)
+## The temp effect can be "linear" (uses beta_temp) or "nonlinear" (uses temp_optimum and temp_breadth)
 ## The Site and Temperature effects are arbitrary but scaled to be meaningful in magnitude
 ## All 3 variables can be correlated by specifying covariance in the MVN function
 ## This does mean the distribution of effort values is normal, which may not always be the case
@@ -111,7 +111,7 @@ generate_counts <- function(n_obs = 1000,  #number of counts to generate
   theta <- 3  # controls overdispersion; higher means less dispersion
   mu <- exp(linear_pred)
   counts <- rnbinom(n_obs, mu = mu, size = theta)
-  #counts <- rpois(n_obs, lambda = mu)
+  #counts <- rpois(n_obs, lambda = mu)  #useful test for increasing signal:noise
   
   # Create and return a data frame
   return(data.frame(Count = counts,
