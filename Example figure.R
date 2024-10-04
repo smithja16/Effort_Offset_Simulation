@@ -5,8 +5,8 @@
 ####   J.A.Smith NSW DPI 30/8/24                          ####
 ##############################################################
 
-## This script generates an example figure showing numerous effort marginals
-## The data generated are here are simpler than in the other function
+## This script generates an example figure showing numerous effort marginals (Figure 1)
+## The data generated are here are simpler than in the main simulation function
 
 # Load libraries
 library(ggplot2)
@@ -32,7 +32,7 @@ generate_data <- function(n = 200, type = "proportional") {
   data.frame(count = count, effort = effort, true_lambda = true_lambda)
 }
 
-# Generate datasets
+# Generate data sets
 data_prop <- generate_data(type = "proportional")
 data_thresh <- generate_data(type = "threshold")
 
