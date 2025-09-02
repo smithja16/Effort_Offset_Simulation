@@ -9,7 +9,7 @@
 ## is endogenous to abundance, this can confound the effort-abundance
 ## relationship, and bias estimated trends in abundance. This is 
 ## put in a fisheries context due to the suitability of this context 
-## and importance of this for catch rate standardizations.
+## and importance of this issue for catch rate standardizations.
 
 ## Scenario:
 ## The Effort-Abundance relationship is proportional, but also:
@@ -129,7 +129,7 @@ p2 <- ggplot(mean_n, aes(x = year, y = true_abundance)) +
 print(p2)
 
 
-# Fit models
+# Fit catch rate standardization models
 # 1. Effort as offset
 m_offset <- glm(catch ~ year + offset(log(effort)), family = quasipoisson, data = data)
 
