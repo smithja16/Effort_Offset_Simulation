@@ -5,6 +5,9 @@
 ####   J.A.Smith NSW DPI 30/8/24                          ####
 ##############################################################
 
+## Some R code in this and associated scripts was written or improved by
+## Claude Sonnet 3.7.
+
 
 ## Load libraries
 library(mgcv)
