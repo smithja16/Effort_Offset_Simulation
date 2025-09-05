@@ -57,6 +57,7 @@ for (dd in 1:8) {
 
 ## 2) For each data scenario, fit these six models
 
+# Define function
 fit_models <- function(data_num) {  #e.g. number suffix
   datax <- get(paste0("data",data_num))
   datax$logEffort <- log(datax$Effort)  #pre-transforming makes it easier to get Effort marginal effects
@@ -71,6 +72,7 @@ fit_models <- function(data_num) {  #e.g. number suffix
   return(list(M1=M1, M2=M2, M3=M3, M4=M4, M5=M5, M6=M6))
 }
 
+# Fit models
 for (dd in 1:8) {
   assign(paste0("results_",dd), fit_models(data_num = dd))
 }
@@ -81,7 +83,15 @@ for (dd in 1:8) {
 results <- save_plot_results(ylims=c(200, 200, 150, 150, 60, 200, 15, 50))
 
 
-## 4) Interpret results
+## 4) Run k-folds cross validation
+
+cv_all <- run_cv_all_datasets(k = 5, n_repeats = 3, seed = 117)
+cv_all$overall_all_datasets          # model ranking (lower MAE is better)
+subset(cv_all$overall_by_dataset, dataset == 1)  # dataset 1 summary
+head(cv_all$per_fold)                # per-fold details
+
+
+## 5) Interpret results
 
 # Evaluate residuals
 for (dd in c(1:8)) {
@@ -93,7 +103,7 @@ for (dd in c(1:8)) {
   }
 }
 
-# MAE of all data
+# FItted MAE of all data
 save_mae <- results$save_mae
 wide_mae <- save_mae[save_mae$model %in% c(1:5),1:3] %>%  # *exclude M6 bc it's unfairly favoured in D5 and D8
   tidyr::pivot_wider(names_from = model, values_from = MAE)

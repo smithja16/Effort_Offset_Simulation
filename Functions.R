@@ -215,6 +215,87 @@ save_plot_results <- function(ylims) {
 }
 
 
+## Core CV function (random splits, MAE metric)
+
+cv_repeated_kfold <- function(models, data, k = 5, n_repeats = 3, seed = 117) {
+  stopifnot(is.list(models))
+  set.seed(seed)
+  
+  n <- nrow(data)
+  model_names <- names(models)
+  
+  # per-fold results (long format)
+  res_fold <- vector("list", length = n_repeats * k)
+  idx <- 1
+  
+  for (r in seq_len(n_repeats)) {
+    # new random folds each repeat
+    fold_id <- sample(rep_len(1:k, n))
+    
+    for (f in 1:k) {
+      train <- data[fold_id != f, , drop = FALSE]
+      test  <- data[fold_id == f, , drop = FALSE]
+      
+      # fit each model on train via update(), then predict on test
+      df_fold <- do.call(rbind, lapply(model_names, function(mn) {
+        mod_tr <- update(models[[mn]], data = train)  # refit on training split
+        mu     <- predict(mod_tr, newdata = test, type = "response")
+        mae    <- mean(abs(test$Count - mu))
+        data.frame(model = mn, rept = r, fold = f, mae = mae, n_test = nrow(test))
+      }))
+      
+      res_fold[[idx]] <- df_fold
+      idx <- idx + 1
+    }
+  }
+  
+  res_fold <- do.call(rbind, res_fold)
+  
+  # per-repeat summaries (average MAE across that repeat's folds)
+  per_repeat <- aggregate(mae ~ model + rept, data = res_fold, FUN = mean)
+  names(per_repeat)[names(per_repeat) == "mae"] <- "mae_mean_repeat"
+  
+  # overall summary (average across repeats)
+  overall <- aggregate(mae ~ model, data = res_fold, FUN = mean)
+  names(overall)[names(overall) == "mae"] <- "mae_mean_overall"
+  
+  list(per_fold = res_fold, per_repeat = per_repeat, overall = overall[order(overall$mae_mean_overall), ])
+}
+
+
+## Function to run CV over the 8 scenarios
+
+run_cv_all_datasets <- function(k = 5, n_repeats = 3, seed = 117) {
+  out_list <- lapply(1:8, function(dd) {
+    datax <- get(paste0("data", dd))
+    datax$logEffort <- log(datax$Effort)
+    
+    models <- get(paste0("results_", dd))  # from the fit_models loop
+    
+    cv <- cv_repeated_kfold(models, datax, k = k, n_repeats = n_repeats, seed = seed)
+    
+    # attach dataset id
+    cv$per_fold$dataset   <- dd
+    cv$per_repeat$dataset <- dd
+    cv$overall$dataset    <- dd
+    
+    cv
+  })
+  
+  # bind across datasets
+  per_fold   <- do.call(rbind, lapply(out_list, `[[`, "per_fold"))
+  per_repeat <- do.call(rbind, lapply(out_list, `[[`, "per_repeat"))
+  overall    <- do.call(rbind, lapply(out_list, `[[`, "overall"))
+  
+  # optional: overall ranking averaged across datasets
+  overall_by_model <- aggregate(mae_mean_overall ~ model, overall, mean)
+  overall_by_model <- overall_by_model[order(overall_by_model$mae_mean_overall), ]
+  
+  list(per_fold = per_fold, per_repeat = per_repeat,
+       overall_by_dataset = overall, overall_all_datasets = overall_by_model)
+}
+
+
 ## Code to measure whether the 95% CI of an estimate encompasses the true value
 ## I wrote this as a function to keep the main script cleaner
 
