@@ -85,8 +85,11 @@ results <- save_plot_results(ylims=c(200, 200, 150, 150, 60, 200, 15, 50))
 
 ## 4) Run k-folds cross validation
 
-cv_all <- run_cv_all_datasets(k = 5, n_repeats = 3, seed = 117)
+cv_all <- run_cv_all_datasets(k = 5, n_repeats = 10, seed = 117)
 cv_all$overall_by_dataset  #raw values
+cv_wide <- cv_all$overall_by_dataset %>%
+  select(dataset, model, mae_mean_overall) %>%
+  tidyr::pivot_wider(names_from = model, values_from = mae_mean_overall)
 
 
 ## 5) Interpret results

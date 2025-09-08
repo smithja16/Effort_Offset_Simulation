@@ -229,6 +229,7 @@ cv_repeated_kfold <- function(models, data, k = 5, n_repeats = 3, seed = 117,
   idx <- 1
   
   for (r in seq_len(n_repeats)) {
+    print(paste0("Repeat n = ",r))
     # new random folds each repeat
     fold_id <- sample(rep_len(1:k, n))
     
@@ -281,6 +282,7 @@ run_cv_all_datasets <- function(k = 5, n_repeats = 3, seed = 117) {
   out_list <- lapply(1:8, function(dd) {
     datax <- get(paste0("data", dd))
     datax$logEffort <- log(datax$Effort)
+    print(paste0("DATA = ",dd))
     
     models <- get(paste0("results_", dd))  # from the fit_models loop
     
