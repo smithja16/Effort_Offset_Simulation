@@ -217,8 +217,8 @@ save_plot_results <- function(ylims) {
 
 ## Core CV function (random splits, MAE metric)
 
-cv_repeated_kfold <- function(models, data, k = 5, n_repeats = 3, seed = 117) {
-  stopifnot(is.list(models))
+cv_repeated_kfold <- function(models, data, k = 5, n_repeats = 3, seed = 117,
+                              high_thr = 15, low_thr = 8) {  #high and low effort thresholds
   set.seed(seed)
   
   n <- nrow(data)
@@ -239,9 +239,17 @@ cv_repeated_kfold <- function(models, data, k = 5, n_repeats = 3, seed = 117) {
       # fit each model on train via update(), then predict on test
       df_fold <- do.call(rbind, lapply(model_names, function(mn) {
         mod_tr <- update(models[[mn]], data = train)  # refit on training split
-        mu     <- predict(mod_tr, newdata = test, type = "response")
-        mae    <- mean(abs(test$Count - mu))
-        data.frame(model = mn, rept = r, fold = f, mae = mae, n_test = nrow(test))
+        pred <- predict(mod_tr, newdata = test, type = "response")
+        
+        mae <- MAE(pred, test$Count)  # mean absolute error
+        ix_high <- test$Effort > high_thr
+        ix_low  <- test$Effort < low_thr
+        mae_max <- MAE(pred[ix_high], test$Count[ix_high])  # MAE for high effort values
+        mae_min <- MAE(pred[ix_low], test$Count[ix_low])  # MAE for low effort values
+        
+        data.frame(model = mn, rept = r, fold = f,
+                   mae = mae, mae_max = mae_max, mae_min = mae_min,
+                   n_test = nrow(test))
       }))
       
       res_fold[[idx]] <- df_fold
@@ -252,14 +260,18 @@ cv_repeated_kfold <- function(models, data, k = 5, n_repeats = 3, seed = 117) {
   res_fold <- do.call(rbind, res_fold)
   
   # per-repeat summaries (average MAE across that repeat's folds)
-  per_repeat <- aggregate(mae ~ model + rept, data = res_fold, FUN = mean)
-  names(per_repeat)[names(per_repeat) == "mae"] <- "mae_mean_repeat"
+  per_repeat <- aggregate(cbind(mae, mae_max, mae_min) ~ model + rept,
+                          data = res_fold, FUN = mean)
+  names(per_repeat)[-c(1:2)] <- paste0(names(per_repeat)[-c(1:2)], "_mean_repeat")
   
   # overall summary (average across repeats)
-  overall <- aggregate(mae ~ model, data = res_fold, FUN = mean)
-  names(overall)[names(overall) == "mae"] <- "mae_mean_overall"
+  overall <- aggregate(cbind(mae, mae_max, mae_min) ~ model,
+                       data = res_fold, FUN = mean)
+  names(overall)[-1] <- paste0(names(overall)[-1], "_mean_overall")
   
-  list(per_fold = res_fold, per_repeat = per_repeat, overall = overall[order(overall$mae_mean_overall), ])
+  list(per_fold = res_fold,
+       per_repeat = per_repeat,
+       overall = overall)
 }
 
 
@@ -272,7 +284,11 @@ run_cv_all_datasets <- function(k = 5, n_repeats = 3, seed = 117) {
     
     models <- get(paste0("results_", dd))  # from the fit_models loop
     
-    cv <- cv_repeated_kfold(models, datax, k = k, n_repeats = n_repeats, seed = seed)
+    cv <- cv_repeated_kfold(models,
+                            datax,
+                            k = k,
+                            n_repeats = n_repeats,
+                            seed = seed)
     
     # attach dataset id
     cv$per_fold$dataset   <- dd
@@ -326,6 +342,94 @@ estimate_accuracy <- function(results) {
     }
   }
   return(summary_in_out)
+  
+}
+
+
+## Code to calculate the MAE of fitted vs observed (i.e. in-sample data)
+## Make a useful comparison against the out-of-sample MAE values
+## I wrote this as a function to keep the main script cleaner
+
+in_sample_mae <- function() {
+  
+  save_mae <- results$save_mae
+  wide_mae <- save_mae[save_mae$model %in% c(1:5),1:3] %>%  # *exclude M6 bc it's unfairly favoured in D5 and D8
+    tidyr::pivot_wider(names_from = model, values_from = MAE)
+  wide_mae[, -1] <- t(apply(wide_mae[, -1], 1, function(x) {
+    100 * (x - min(x)) / min(x) } ))
+  wide_mae <- round(as.data.frame(wide_mae), 2)  #percent change in MAE from minimum
+  r1 <- colMeans(wide_mae[wide_mae$data %in% c(1,2,5,6),-1])  #when effort effect is proportional
+  r2 <- colMeans(wide_mae[wide_mae$data %in% c(3,4,7,8),-1])  #when effort effect is threshold or constant
+  
+  # MAE > high Effort values
+  wide_mae_max <- save_mae[save_mae$model %in% c(1:5),c(1,2,4)] %>%  # *exclude M6 bc it's unfairly favoured in D5 and D8
+    tidyr::pivot_wider(names_from = model, values_from = MAE_max)
+  wide_mae_max[, -1] <- t(apply(wide_mae_max[, -1], 1, function(x) {
+    100 * (x - min(x)) / min(x) } ))
+  wide_mae_max <- round(as.data.frame(wide_mae_max), 2)  #percent change in MAE from minimum
+  r3 <- colMeans(wide_mae_max[wide_mae_max$data %in% c(1,2,5,6),-1])  #when proportional
+  r4 <- colMeans(wide_mae_max[wide_mae_max$data %in% c(3,4,7,8),-1])  #when threshold or constant
+  
+  # MAE < low Effort values
+  wide_mae_min <- save_mae[save_mae$model %in% c(1:5),c(1,2,5)] %>%  # *exclude M6 bc it's unfairly favoured in D5 and D8
+    tidyr::pivot_wider(names_from = model, values_from = MAE_min)
+  wide_mae_min[, -1] <- t(apply(wide_mae_min[, -1], 1, function(x) {
+    100 * (x - min(x)) / min(x) } ))
+  wide_mae_min <- round(as.data.frame(wide_mae_min), 2)  #percent change in MAE from minimum
+  r5 <- colMeans(wide_mae_min[wide_mae_min$data %in% c(1,2,5,6),-1])  #when proportional
+  r6 <- colMeans(wide_mae_min[wide_mae_min$data %in% c(3,4,7,8),-1])  #when threshold or constant
+  
+  in_samp_mae <- rbind(r1,r2,r3,r4,r5,r6)
+  colnames(in_samp_mae) <- c("M1","M2","M3","M4","M5")
+  rownames(in_samp_mae) <- c("prop_mae","thresh_mae",
+                             "prop_mae_max","thresh_mae_max",
+                             "prop_mae_min","thresh_mae_min")
+  return(in_samp_mae)
+  
+}
+
+
+## Code to calculate the MAE of fitted vs observed (i.e. in-sample data)
+## Make a useful comparison against the out-of-sample MAE values
+## I wrote this as a function to keep the main script cleaner
+
+out_sample_mae <- function() {
+
+  save_mae <- cv_all$overall_by_dataset
+  save_mae1 <- save_mae[save_mae$model != "M6", c("model","dataset","mae_mean_overall")]
+  wide_mae <- save_mae1 %>%  # *exclude M6 bc it's unfairly favoured in D5 and D8
+    tidyr::pivot_wider(names_from = model, values_from = mae_mean_overall)
+  wide_mae[, -1] <- t(apply(wide_mae[, -1], 1, function(x) {
+    100 * (x - min(x)) / min(x) } ))
+  wide_mae <- round(as.data.frame(wide_mae), 2)  #percent change in MAE from minimum
+  r1 <- colMeans(wide_mae[wide_mae$dataset %in% c(1,2,5,6),-1])  #when effort effect is proportional
+  r2 <- colMeans(wide_mae[wide_mae$dataset %in% c(3,4,7,8),-1])  #when effort effect is threshold or constant
+  
+  # MAE > high Effort values
+  save_mae2 <- save_mae[save_mae$model != "M6", c("model","dataset","mae_max_mean_overall")]
+  wide_mae_max <- save_mae2 %>%  # *exclude M6 bc it's unfairly favoured in D5 and D8
+    tidyr::pivot_wider(names_from = model, values_from = mae_max_mean_overall)
+  wide_mae_max[, -1] <- t(apply(wide_mae_max[, -1], 1, function(x) {
+    100 * (x - min(x)) / min(x) } ))
+  wide_mae_max <- round(as.data.frame(wide_mae_max), 2)  #percent change in MAE from minimum
+  r3 <- colMeans(wide_mae_max[wide_mae_max$data %in% c(1,2,5,6),-1])  #when proportional
+  r4 <- colMeans(wide_mae_max[wide_mae_max$data %in% c(3,4,7,8),-1])  #when threshold or constant
+  
+  # MAE < low Effort values
+  save_mae3 <- save_mae[save_mae$model != "M6", c("model","dataset","mae_min_mean_overall")]
+  wide_mae_min <- save_mae3 %>%  # *exclude M6 bc it's unfairly favoured in D5 and D8
+    tidyr::pivot_wider(names_from = model, values_from = mae_min_mean_overall)
+  wide_mae_min[, -1] <- t(apply(wide_mae_min[, -1], 1, function(x) {
+    100 * (x - min(x)) / min(x) } ))
+  wide_mae_min <- round(as.data.frame(wide_mae_min), 2)  #percent change in MAE from minimum
+  r5 <- colMeans(wide_mae_min[wide_mae_min$data %in% c(1,2,5,6),-1])  #when proportional
+  r6 <- colMeans(wide_mae_min[wide_mae_min$data %in% c(3,4,7,8),-1])  #when threshold or constant
+  
+  in_samp_mae <- rbind(r1,r2,r3,r4,r5,r6)
+  rownames(in_samp_mae) <- c("prop_mae","thresh_mae",
+                             "prop_mae_max","thresh_mae_max",
+                             "prop_mae_min","thresh_mae_min")
+  return(in_samp_mae)
   
 }
 

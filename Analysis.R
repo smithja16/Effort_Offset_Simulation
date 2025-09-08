@@ -86,9 +86,7 @@ results <- save_plot_results(ylims=c(200, 200, 150, 150, 60, 200, 15, 50))
 ## 4) Run k-folds cross validation
 
 cv_all <- run_cv_all_datasets(k = 5, n_repeats = 3, seed = 117)
-cv_all$overall_all_datasets          # model ranking (lower MAE is better)
-subset(cv_all$overall_by_dataset, dataset == 1)  # dataset 1 summary
-head(cv_all$per_fold)                # per-fold details
+cv_all$overall_by_dataset  #raw values
 
 
 ## 5) Interpret results
@@ -103,33 +101,11 @@ for (dd in c(1:8)) {
   }
 }
 
-# FItted MAE of all data
-save_mae <- results$save_mae
-wide_mae <- save_mae[save_mae$model %in% c(1:5),1:3] %>%  # *exclude M6 bc it's unfairly favoured in D5 and D8
-  tidyr::pivot_wider(names_from = model, values_from = MAE)
-wide_mae[, -1] <- t(apply(wide_mae[, -1], 1, function(x) {
-  100 * (x - min(x)) / min(x) } ))
-wide_mae <- round(as.data.frame(wide_mae), 2)  #percent change in MAE from minimum
-colMeans(wide_mae[wide_mae$data %in% c(1,2,5,6),])  #when effort effect is proportional
-colMeans(wide_mae[wide_mae$data %in% c(3,4,7,8),])  #when effort effect is threshold or constant
+# MAE of fitted vs observed, % difference from model with minimum MAE
+in_sample_mae()
 
-# MAE > high Effort values
-wide_mae_max <- save_mae[save_mae$model %in% c(1:5),c(1,2,4)] %>%  # *exclude M6 bc it's unfairly favoured in D5 and D8
-  tidyr::pivot_wider(names_from = model, values_from = MAE_max)
-wide_mae_max[, -1] <- t(apply(wide_mae_max[, -1], 1, function(x) {
-  100 * (x - min(x)) / min(x) } ))
-wide_mae_max <- round(as.data.frame(wide_mae_max), 2)  #percent change in MAE from minimum
-colMeans(wide_mae_max[wide_mae_max$data %in% c(1,2,5,6),])  #when proportional
-colMeans(wide_mae_max[wide_mae_max$data %in% c(3,4,7,8),])  #when threshold or constant
-
-# MAE < low Effort values
-wide_mae_min <- save_mae[save_mae$model %in% c(1:5),c(1,2,5)] %>%  # *exclude M6 bc it's unfairly favoured in D5 and D8
-  tidyr::pivot_wider(names_from = model, values_from = MAE_min)
-wide_mae_min[, -1] <- t(apply(wide_mae_min[, -1], 1, function(x) {
-  100 * (x - min(x)) / min(x) } ))
-wide_mae_min <- round(as.data.frame(wide_mae_min), 2)  #percent change in MAE from minimum
-colMeans(wide_mae_min[wide_mae_min$data %in% c(1,2,5,6),])  #when proportional
-colMeans(wide_mae_min[wide_mae_min$data %in% c(3,4,7,8),])  #when threshold or constant
+# MAE of cross-validated predicted vs observed, % difference from model with minimum MAE
+out_sample_mae()
 
 # Estimates - did they recover the true effect?
 # These summaries are = 1 if 95% CI overlaps the true estimate, and = 0 otherwise
