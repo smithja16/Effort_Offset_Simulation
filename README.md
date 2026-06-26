@@ -5,5 +5,6 @@ The code works in three stages:
 2) fits a varity of GLMs to these data scenarios
 3) measures performance of each model for each data scenario, to gain insight into offset terms and variously structured effort covariates
 
-'Analysis.R' is the top script, and calls most code from 'Functions.R'
+'Analysis.R' is the top script, and calls most code from 'Functions.R'.
+
 Seconday, non-essential, analyses are provided in 'Supplementary analysis.R', which calls 'Functions supplementary.R'.
