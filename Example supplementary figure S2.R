@@ -2,7 +2,7 @@
 ####   Code to generate and evaluate catch data...        ####
 ####   ... given Site, Temperature, and Effort effects... ####
 ####   ... to test how to best model Effort in GLMs.      ####
-####   J.A.Smith NSW DPI 30/8/24                          ####
+####   J.A.Smith NSW DPI - June 2026                      ####
 ##############################################################
 
 ## This script generates an example figure showing the difference in 

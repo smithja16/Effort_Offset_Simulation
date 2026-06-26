@@ -2,11 +2,11 @@
 ####   Code to generate and evaluate catch data...        ####
 ####   ... given Site, Temperature, and Effort effects... ####
 ####   ... to test how to best model Effort in GLMs.      ####
-####   J.A.Smith NSW DPI 30/8/24                          ####
+####   J.A.Smith NSW DPI - June 2026                      ####
 ##############################################################
 
 ## Some R code in this and associated scripts was written or improved by
-## Claude Sonnet 3.7.
+## Claude Sonnet 3.7 and Sonnet 4.6.
 
 
 ## Load libraries
@@ -41,6 +41,7 @@ for (dd in 1:8) {
                                temp_optimum = 20,
                                temp_breadth = 5,
                                beta_temp = 0.1,
+                               distribution = "nbinom",
                                seed=117)
   assign(paste0("data",dd), counts_dd)
 }

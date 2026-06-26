@@ -1,7 +1,7 @@
 ##############################################################
 ####   Functions to generate and evaluate catch data...   ####
 ####   ... given Site, Temperature, and Effort effects    ####
-####   J.A.Smith NSW DPI 30/8/24                          ####
+####   J.A.Smith NSW DPI - June 2026                      ####
 ##############################################################
 
 ## Generic RMSE function
@@ -27,7 +27,7 @@ MAE = function(p, o) {
 
 
 ## *Workhorse data generation function*
-## This generates count data from a negative binomial distribution with specified theta
+## This generates count data from a negative binomial distribution with specified theta, or Poisson
 ## Counts are determined by specified effort, site (3 levels), and temperature effects
 ## The effort effect can be "proportional", "threshold", or "constant"...
 ## ... "proportional" is a 1:1 relationship assumed by an offset term
@@ -39,20 +39,23 @@ MAE = function(p, o) {
 ## This does mean the distribution of effort values is normal, which may not always be the case
 ## Adding correlation can change the magnitude of marginal effects and thus magnitude of counts
 
-generate_counts <- function(n_obs = 1000,  #number of counts to generate 
-                            temp_effort_cor = 0,  # covariance between Temp and Effort 
-                            site_effort_cor = 0,  # covariance between Site and Effort
-                            effort_type = c("proportional", "threshold", "constant"),
-                            temp_effect = c("linear", "nonlinear"),
-                            temp_optimum = 20,  # temp at which nonlinear effect peaks
-                            temp_breadth = 5,   # controls how quickly nonlinear effect drops off
-                            beta_temp = 0.1,    # coefficient for linear temp effect
-                            seed = NULL) {  #can set seed for reproducibility
+generate_counts <- function(
+    n_obs = 1000,                #number of counts to generate 
+    temp_effort_cor = 0,         # covariance between Temp and Effort 
+    site_effort_cor = 0,         # covariance between Site and Effort
+    effort_type = c("proportional", "threshold", "constant"),
+    temp_effect = c("linear", "nonlinear"),
+    temp_optimum = 20,           # temp at which nonlinear effect peaks
+    temp_breadth = 5,            # controls how quickly nonlinear effect drops off
+    beta_temp = 0.1,             # coefficient for linear temp effect
+    distribution = c("nbinom", "poisson"),
+    seed = NULL) {               #set seed for reproducibility
   
   set.seed(seed)
   
-  effort_type <- match.arg(effort_type)
-  temp_effect <- match.arg(temp_effect)
+  effort_type  <- match.arg(effort_type)
+  temp_effect  <- match.arg(temp_effect)
+  distribution <- match.arg(distribution)
   
   ## Generate site variable
   site <- as.factor(sample(c("A", "B", "C"), n_obs, replace = TRUE))
@@ -68,19 +71,22 @@ generate_counts <- function(n_obs = 1000,  #number of counts to generate
                            0, site_effort_cor, 1), nrow = 3)
     
     # Generate multivariate normal distribution
+    # NOTE: this 3x3 matrix is only positive-definite when
+    #   temp_effort_cor^2 + site_effort_cor^2 < 1
+    # so vary only one covariance at a time when pushing to large values
     mvn_vars <- MASS::mvrnorm(n = n_obs, mu = c(0, 0, 0), Sigma = cor_matrix)
     
     # Extract and scale variables
-    temperature <- mvn_vars[,1] * 3 + 20  # scale to desired sd = 3 and mean = 20
-    effort_base <- mvn_vars[,2] * 2.5 + 12  # scale to desired sd = 2.5 and mean = 12
-    site_effect <- mvn_vars[,3] * site_effort_cor * 2.3  # scale effect size (amplify the Site effect)
+    temperature <- mvn_vars[,1] * 3 + 20         # scale to desired sd = 3 and mean = 20
+    effort_base <- mvn_vars[,2] * 2.5 + 12       # scale to desired sd = 2.5 and mean = 12
+    site_effect <- mvn_vars[,3] * site_effort_cor * 2.3   # scale effect size (amplify the Site effect)
     
     # Combine base effort and site effect
     effort <- effort_base + site_effect
     
     # Adjust site effect based on actual site
-    site_adjustments <- c(A = -mean(site_effect), 
-                          B = site_effort_cor * 2.3 - mean(site_effect), 
+    site_adjustments <- c(A = -mean(site_effect),
+                          B = site_effort_cor * 2.3 - mean(site_effect),
                           C = -site_effort_cor * 2.3 - mean(site_effect))
     effort <- effort + site_adjustments[site]
   }
@@ -101,7 +107,7 @@ generate_counts <- function(n_obs = 1000,  #number of counts to generate
   if (effort_type == "proportional") {
     linear_pred <- linear_pred + log(effort)
   } else if (effort_type == "threshold") {
-    effort_threshold <- 12  # previously used max(effort)/2, but this varied a lot due to random large values
+    effort_threshold <- 12  # fixed at the mean effort
     linear_pred <- linear_pred + log(pmin(effort, effort_threshold))
   } else if (effort_type == "constant") {
     # No effect of effort
@@ -110,10 +116,12 @@ generate_counts <- function(n_obs = 1000,  #number of counts to generate
   ## Generate counts using negative binomial distribution or Poisson
   theta <- 3  # controls overdispersion; higher means less dispersion
   mu <- exp(linear_pred)
-  counts <- rnbinom(n_obs, mu = mu, size = theta)
-  #counts <- rpois(n_obs, lambda = mu)  #useful test for increasing signal:noise
+  if (distribution == "nbinom") {
+    counts <- rnbinom(n_obs, mu = mu, size = theta)
+  } else {  # poisson: higher signal-to-noise ratio
+    counts <- rpois(n_obs, lambda = mu)
+  }
   
-  # Create and return a data frame
   return(data.frame(Count = counts,
                     Site = site,
                     Temperature = temperature,
