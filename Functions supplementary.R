@@ -5,11 +5,10 @@
 ##############################################################
 
 ## Source this file after Functions.R, bc it reuses some functions
-## This script provides four supplementary analyses:
+## This script provides 3 supplementary analyses:
 ##   1) AIC and deviance explained for M1-M6
 ##   2) Poisson vs negative binomial data generation
 ##   3) Collinearity-gradient sensitivity analysis
-##   4) Example DHARMa residual plots
 
 
 ## Scenario definitions and helpers
@@ -265,28 +264,4 @@ collinearity_gradient_replicated <- function(cov_seq = seq(0, 0.9, by = 0.1),
   summary_tab[num] <- round(summary_tab[num], 3)
 
   return(list(per_rep = per_rep, summary = summary_tab))
-}
-
-
-## 4) Example DHARMa residual plots
-
-## Saves simulated-residual plots for a few illustrative model/scenario
-## combinations. Defaults: M1 on no-effort data (D7; expected to be patterned),
-## and M1 vs M4 on threshold data (D8)
-
-save_residual_examples <- function(out_dir = "supplementary_outputs",
-                                    picks = list(c(7, 1), c(8, 1), c(8, 4))) {
-  dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
-  for (p in picks) {
-    dd <- p[1]; mm <- p[2]
-    datax <- make_scenario_data(dd, distribution = "nbinom")
-    mods  <- fit_models_data(datax)
-    Mx <- mods[[paste0("M", mm)]]
-    fname <- file.path(out_dir, sprintf("residuals_D%d_M%d.png", dd, mm))
-    png(fname, width = 1400, height = 700, res = 150)
-    plot(DHARMa::simulateResiduals(Mx),
-         main = sprintf("Data scenario D%d, Model M%d", dd, mm))
-    dev.off()
-    message("Wrote ", fname)
-  }
 }

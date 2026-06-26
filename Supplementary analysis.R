@@ -4,18 +4,16 @@
 ####   J.A.Smith   NSW DPI   June 2026                    ####
 ##############################################################
 
-## It produces four supplementary outputs:
+## It produces 3 supplementary outputs:
 ##   AIC and deviance explained for M1-M6 (deviance explained not very insightful)
 ##   Poisson vs negative binomial MAE
 ##   collinearity-gradient sensitivity
-##   example DHARMa residual plots
 ##
 ## Outputs written to ./supplementary_outputs/
 
 library(mgcv)
 library(dplyr)
 library(tidyr)
-library(DHARMa)
 
 ## Load the original and supplementary functions
 source("Functions.R")
@@ -119,8 +117,3 @@ legend("bottomleft", bty = "n", lty = 3, col = "grey50",
        legend = "nominal 0.95 coverage")
 
 dev.off()
-
-## 4) Example DHARMa residual plots
-save_residual_examples(out_dir = out_dir,
-                       picks = list(c(7, 1), c(8, 1), c(8, 4)))
-
