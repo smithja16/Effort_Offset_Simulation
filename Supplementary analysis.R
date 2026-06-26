@@ -17,7 +17,7 @@ library(tidyr)
 
 ## Load the original and supplementary functions
 source("Functions.R")
-source("Functions_supplementary.R")
+source("Functions supplementary.R")
 
 out_dir <- "supplementary_outputs"
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
@@ -65,8 +65,8 @@ print(dist_cmp$nbinom)
 print(dist_cmp$poisson)
 
 ## 3) Collinearity-gradient sensitivity analysis (Reviewer 2)
-## Varies effort-temperature covariance in a single-collinearity proportional
-## scenario
+## Varies effort-temperature covariance in a single-collinearity
+## proportional scenario
 coll <- collinearity_gradient(cov_seq = seq(0, 0.9, by = 0.1),
                               n_obs = 1200, k = 5, n_repeats = 10, seed = 117)
 write.csv(coll, file.path(out_dir, "TableS_collinearity_gradient.csv"),
